@@ -34,7 +34,9 @@ morgan.token('req-body', (req, res) => {
   });
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :req-body'))
-app.use(cors())
+app.use(cors({
+  origin: 'https://fswd-2.onrender.com/'
+}))
 
 // Route to get all data
 app.get('/api/persons', (request, response) => {
