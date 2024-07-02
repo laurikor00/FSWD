@@ -28,6 +28,7 @@ let data = [
 
 // Middleware to parse JSON
 app.use(express.json())
+app.use(express.static(path.join(__dirname, 'dist')))
 
 morgan.token('req-body', (req, res) => {
     return JSON.stringify(req.body);
