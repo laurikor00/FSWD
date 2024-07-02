@@ -1,112 +1,100 @@
-const express = require('express')
-const app = express()
+require('dotenv').config();
+const express = require('express');
+const app = express();
 const morgan = require('morgan');
-const cors = require('cors')
+const cors = require('cors');
+const mongoose = require('mongoose');
+const Person = require('./models/person');
 
-let data = [
-    { 
-      id: 1,
-      name: "Arto Hellas", 
-      number: "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-]
+mongoose.set('strictQuery', false);
 
 // Middleware to parse JSON
-app.use(express.json())
-app.use(express.static(path.join(__dirname, 'dist')))
+app.use(express.json());
 
-morgan.token('req-body', (req, res) => {
-    return JSON.stringify(req.body);
-  });
-
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :req-body'))
-app.use(cors({
-  origin: 'https://fswd-2.onrender.com/'
-}))
+morgan.token('req-body', (req, res) => JSON.stringify(req.body));
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms :req-body'));
+app.use(cors());
 
 // Route to get all data
 app.get('/api/persons', (request, response) => {
-  response.json(data)
-})
+  Person.find({})
+    .then(persons => response.json(persons))
+    .catch(error => {
+      console.error('Error fetching data:', error);
+      response.status(500).json({ error: 'failed to fetch data' });
+    });
+});
 
 // Route to get a single person by id
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = data.find(p => p.id === id)
-  
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(404).end()
-  }
-})
+app.get('/api/persons/:id', (request, response, next) => {
+  Person.findById(request.params.id)
+    .then(person => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch(error => next(error));
+});
 
+// Route to get information
 app.get('/info', (request, response) => {
-    const date = new Date()
-    const numberOfEntries = data.length
-  
-    const info = `
-      <p>Phonebook has info for ${numberOfEntries} people</p>
-      <p>${date}</p>
-    `
-  
-    response.send(info)
-  })
+  const date = new Date();
+  Person.countDocuments({})
+    .then(count => {
+      const info = `
+        <p>Phonebook has info for ${count} people</p>
+        <p>${date}</p>
+      `;
+      response.send(info);
+    })
+    .catch(error => {
+      console.error('Error fetching info:', error);
+      response.status(500).json({ error: 'failed to fetch info' });
+    });
+});
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    data = data.filter(person => person.id !== id)
-  
-    response.status(204).end()
-})
+// Route to delete a person by id
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(() => response.status(204).end())
+    .catch(error => next(error));
+});
 
-const generateId = () => {
-    return Math.floor(Math.random() * 1000000).toString()
+// Route to add a new person
+app.post('/api/persons', (request, response, next) => {
+  const body = request.body;
+  console.log(body);
+
+  if (!body.name || !body.number) {
+    return response.status(400).json({ error: 'name or number is missing' });
   }
 
-app.post('/api/persons', (request, response) => {
-    const body = request.body
-    console.log(body)
+  const person = new Person({
+    name: body.name,
+    number: body.number,
+  });
 
-    if (!body.name || !body.number) {
-        return response.status(400).json({ error: 'name or number is missing' });
-      }
-    
-      const nameExists = data.some(person => person.name === body.name);
-      if (nameExists) {
-        return response.status(400).json({ error: 'name must be unique' });
-      }
-    const person = {
-      id: generateId(),
-      "name": body.name,
-      "number": body.number
-    }
-  
-    data = data.concat(person)
-  
-    response.json(person)
-  })
+  person.save()
+    .then(savedPerson => response.json(savedPerson))
+    .catch(error => next(error));
+});
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-})
+// Error handler middleware
+const errorHandler = (error, req, res, next) => {
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' });
+  } else if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message });
+  }
 
-  const PORT = process.env.PORT || 3001
+  next(error);
+};
+
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
