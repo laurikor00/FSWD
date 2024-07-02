@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import Filter from './Phonebook/Filter';
-import PersonForm from './Phonebook/PersonForm';
-import Persons from './Phonebook/Persons';
+import Filter from './components/Filter';
+import PersonForm from './components/PersonForm';
+import Persons from './components/Persons';
 import personService from './services/personService';
-import Notification from './Phonebook/Notification'
+import Notification from './components/Notification'
 
 const App = () => {
   const [persons, setPersons] = useState([]);
